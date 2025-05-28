@@ -369,14 +369,31 @@ class TranslationDiffusion:
             coords = shape_to_np(shape, dtype="int")
             return coords
 
-        source_img = np.array(Image.open(source_img).convert("RGB").resize((256, 256)))
-        target_img = np.array(Image.open(target_img).convert("RGB").resize((256, 256)))
-        source_mask = np.array(
-            (Image.open(source_mask).convert("L").resize((256, 256), Image.Resampling.NEAREST))
-        )
-        target_mask = np.array(
-            (Image.open(target_mask).convert("L").resize((256, 256), Image.Resampling.NEAREST))
-        )
+        if isinstance(source_img, str):
+            source_img = Image.open(source_img)
+        if isinstance(target_img, str):
+            target_img = Image.open(target_img)
+
+        if isinstance(source_img, Image.Image):
+            source_img = np.array(source_img.convert("RGB").resize((256, 256)))
+        if isinstance(target_img, Image.Image):
+            target_img = np.array(target_img.convert("RGB").resize((256, 256)))
+
+        if isinstance(source_mask, str):
+            source_mask = Image.open(source_mask)
+
+        if isinstance(target_mask, str):
+            target_mask = Image.open(target_mask)
+
+        if isinstance(source_mask, Image.Image):
+            source_mask = np.array(
+                source_mask.convert("L").resize((256, 256), Image.Resampling.NEAREST)
+            )
+
+        if isinstance(target_mask, Image.Image):
+            target_mask = np.array(
+                target_mask.convert("L").resize((256, 256), Image.Resampling.NEAREST)
+            )
 
         # Expand the hair mask a little bit to avoid the hairline
         hair_mask = target_mask == 12
