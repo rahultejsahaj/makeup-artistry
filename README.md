@@ -171,21 +171,12 @@ python generate_text_editing.py \
     --model-path Justin900/MAD
 ```
 
-## 🎨 C. Web UI (Beta)
+## 🎨 C. Web UI
 
 Users can start the web UI by add access our designed UI with [gradio](https://github.com/gradio-app/gradio) from `localhost:7860`:
 
 ```
 python app.py
-```
-
-**Note:** Please put the weights with the following way:
-
-```plaintext
-📦 {PROJECT_ROOT}
-┣ 📂 makeup_checkpoint.pth  # For our model
-┃ 📂 text_checkpoint.pth    # For SD model
-┗ ...
 ```
 
 ![gradio](assets/gradio.png)
