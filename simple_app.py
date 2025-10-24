@@ -5,6 +5,7 @@ import numpy as np
 import gradio as gr
 from PIL import Image, ImageDraw
 import face_recognition
+import base64
 
 def apply_makeup(image, makeup_style):
     """Apply makeup to the image based on the selected style"""
@@ -146,7 +147,7 @@ def apply_makeup(image, makeup_style):
 def process_image(input_image, makeup_style):
     """Main processing function"""
     if input_image is None:
-        return None, "Please upload an image."
+        return None, None, "Please upload an image."
     
     try:
         # Convert PIL image to numpy array if needed
@@ -162,16 +163,105 @@ def process_image(input_image, makeup_style):
         makeup_image, message = apply_makeup(image, makeup_style)
         
         print(f"Processing result: {message}")
-        return makeup_image, message
+        return image, makeup_image, message
         
     except Exception as e:
         print(f"Error: {str(e)}")
-        return None, f"Error processing image: {str(e)}"
+        return None, None, f"Error processing image: {str(e)}"
+
+def create_comparison_slider(original_image, makeup_image):
+    """Create an HTML-based image comparison slider"""
+    if original_image is None or makeup_image is None:
+        return None
+    
+    # Convert images to base64
+    def image_to_base64(img):
+        if hasattr(img, 'convert'):
+            img = img.convert('RGB')
+        else:
+            img = Image.fromarray(img).convert('RGB')
+        
+        import io
+        buffer = io.BytesIO()
+        img.save(buffer, format='PNG')
+        img_str = base64.b64encode(buffer.getvalue()).decode()
+        return f"data:image/png;base64,{img_str}"
+    
+    original_b64 = image_to_base64(original_image)
+    makeup_b64 = image_to_base64(makeup_image)
+    
+    # Create HTML for the comparison slider
+    html_content = f"""
+    <div style="position: relative; width: 100%; height: 400px; overflow: hidden; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+        <img src="{original_b64}" style="width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;" alt="Original">
+        <div style="position: absolute; top: 0; left: 0; width: 50%; height: 100%; overflow: hidden; clip-path: inset(0 50% 0 0);">
+            <img src="{makeup_b64}" style="width: 200%; height: 100%; object-fit: cover; position: absolute; top: 0; left: -100%;" alt="With Makeup">
+        </div>
+        <div style="position: absolute; top: 0; left: 50%; width: 2px; height: 100%; background: #fff; box-shadow: 0 0 10px rgba(0,0,0,0.5); transform: translateX(-50%); cursor: ew-resize;" id="slider"></div>
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255,255,255,0.8); border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: ew-resize;" id="handle">↔</div>
+    </div>
+    <script>
+        const slider = document.getElementById('slider');
+        const handle = document.getElementById('handle');
+        const container = slider.parentElement;
+        const overlay = container.children[1];
+        
+        let isDragging = false;
+        
+        function updateSlider(x) {{
+            const rect = container.getBoundingClientRect();
+            const percentage = Math.max(0, Math.min(100, ((x - rect.left) / rect.width) * 100));
+            slider.style.left = percentage + '%';
+            handle.style.left = percentage + '%';
+            overlay.style.clipPath = `inset(0 ${{100 - percentage}}% 0 0)`;
+        }}
+        
+        slider.addEventListener('mousedown', (e) => {{
+            isDragging = true;
+            e.preventDefault();
+        }});
+        
+        handle.addEventListener('mousedown', (e) => {{
+            isDragging = true;
+            e.preventDefault();
+        }});
+        
+        document.addEventListener('mousemove', (e) => {{
+            if (isDragging) {{
+                updateSlider(e.clientX);
+            }}
+        }});
+        
+        document.addEventListener('mouseup', () => {{
+            isDragging = false;
+        }});
+        
+        container.addEventListener('click', (e) => {{
+            updateSlider(e.clientX);
+        }});
+    </script>
+    """
+    
+    return html_content
 
 # Create Gradio interface
 def create_interface():
-    with gr.Blocks(title="AI Face Makeup Application", theme=gr.themes.Soft()) as demo:
-        gr.Markdown("# 🎭 AI Face Makeup Application")
+    with gr.Blocks(title="RegalRadiance - AI Face Makeup Studio", theme=gr.themes.Soft()) as demo:
+        # Header with logo
+        with gr.Row():
+            gr.HTML("""
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h1 style="color: #D4AF37; font-family: serif; margin: 0;">
+                    <span style="font-size: 2.5em;">👑</span><br>
+                    <span style="font-size: 2em;">RegalRadiance</span><br>
+                    <span style="font-size: 1.2em; color: #B8860B;">RADIANCE</span>
+                </h1>
+                <p style="color: #666; font-size: 1.1em; margin-top: 10px;">
+                    AI-Powered Face Makeup Studio
+                </p>
+            </div>
+            """)
+        
         gr.Markdown("Upload an image and apply different makeup styles using AI-powered face recognition.")
         
         with gr.Row():
@@ -199,18 +289,42 @@ def create_interface():
                 status_text = gr.Textbox(label="Status", interactive=False)
             
             with gr.Column():
-                gr.Markdown("### Result")
+                gr.Markdown("### Before & After Comparison")
                 
-                makeup_output = gr.Image(
-                    label="With Makeup",
-                    height=400
+                # Image comparison slider
+                comparison_slider = gr.HTML(
+                    label="Before/After Comparison Slider",
+                    value="<div style='text-align: center; padding: 20px; color: #666;'>Upload an image and apply makeup to see the comparison slider</div>"
                 )
+                
+                # Individual result images
+                with gr.Row():
+                    with gr.Column():
+                        original_output = gr.Image(
+                            label="Original",
+                            height=200,
+                            visible=False
+                        )
+                    with gr.Column():
+                        makeup_output = gr.Image(
+                            label="With Makeup",
+                            height=200,
+                            visible=False
+                        )
         
         # Event handlers
+        def process_with_comparison(input_image, makeup_style):
+            original, makeup, message = process_image(input_image, makeup_style)
+            if original is not None and makeup is not None:
+                comparison_html = create_comparison_slider(original, makeup)
+                return comparison_html, original, makeup, message
+            else:
+                return None, None, None, message
+        
         process_btn.click(
-            fn=process_image,
+            fn=process_with_comparison,
             inputs=[input_image, makeup_style],
-            outputs=[makeup_output, status_text]
+            outputs=[comparison_slider, original_output, makeup_output, status_text]
         )
         
         gr.Markdown("""
@@ -218,12 +332,21 @@ def create_interface():
         1. Upload an image containing faces
         2. Select a makeup style from the dropdown
         3. Click "Apply Makeup" to process
-        4. View the result with makeup applied
+        4. Use the comparison slider to see before/after effects
+        5. Drag the slider handle to reveal the transformation
+        
+        ### Features:
+        - **Interactive Comparison Slider**: Drag to see before/after effects
+        - **AI Face Detection**: Automatically detects facial features
+        - **5 Makeup Styles**: Choose from different looks
+        - **Real-time Processing**: See results instantly
+        - **Full Image Preservation**: No cropping or quality loss
         
         ### Note:
         - The application uses AI to detect faces and apply makeup
         - Processing may take a few seconds depending on your hardware
         - Make sure the image contains clear, visible faces
+        - Use the slider to compare original vs. makeup-applied images
         """)
     
     return demo
