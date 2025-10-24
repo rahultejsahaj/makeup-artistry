@@ -13,5 +13,5 @@ dlib==19.24.2
 mediapipe==0.10.9
 scikit-image==0.21.0
 aim==3.24.0
-gradio==5.31.0
+gradio==3.50.2
 gdown
